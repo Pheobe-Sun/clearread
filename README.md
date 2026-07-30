@@ -2,6 +2,8 @@
 
 LLM answers, without the wall of text.
 
+**[Try it live](https://pheobe-sun.github.io/clearread/app/demo.html)** · [Project overview](https://pheobe-sun.github.io/clearread/)
+
 ![Before and after: the same LLM answer as a wall of text vs ClearRead chunked view](assets/before-after.gif)
 
 The same answer, one click apart.
@@ -19,7 +21,7 @@ Existing tools swap the font or read the page aloud. None restructure the answer
 - **TL;DR first** — the main point in one plain sentence, before anything else.
 - **Short chunks** — the answer is split into cards of 50 words or fewer, each with a bold gist line.
 - **Tap to expand** — open any chunk when you want the detail.
-- **Read aloud** — a 🔊 button per chunk, in any order you like.
+- **Read aloud** — a 🔊 button per chunk, in any order you like. Uses your browser's built-in voice; optionally paste your own ElevenLabs API key in Voice settings for natural voices (the key stays in your browser's localStorage).
 - **Evidence-based typography** — 66-character lines, 1.7 line-height, generous letter and word spacing, cream background.
 - **Reader controls** — adjust spacing and type to suit you.
 

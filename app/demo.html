@@ -129,6 +129,23 @@
   #before-view .view-caption { background: #ececec; color: #444; }
   #after-view .view-caption { background: var(--cr-surface); color: var(--cr-accent); }
 
+  .cr-voice { margin-top: 0.5rem; font-size: 0.85rem; }
+  .cr-voice summary { cursor: pointer; color: var(--cr-accent); font-weight: 600; }
+  .cr-voice input {
+    display: block;
+    width: 100%;
+    max-width: 24rem;
+    box-sizing: border-box;
+    margin-top: 0.4rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--cr-accent);
+    background: var(--cr-surface);
+    color: var(--cr-text);
+    font: inherit;
+    font-size: 0.85rem;
+  }
+
   :focus-visible { outline: 3px solid var(--cr-accent); outline-offset: 2px; }
 
   .page-footer {
@@ -194,6 +211,16 @@
           <span>Dyslexia font <span class="cr-hint">(personal preference — evidence favors
             spacing, not special fonts)</span></span>
         </label>
+        <details class="cr-voice">
+          <summary>Voice settings</summary>
+          <label>ElevenLabs API key <span class="cr-hint">(optional — leave empty to use
+            your browser's built-in voice)</span>
+            <input type="password" id="ctl-elkey" autocomplete="off"
+              placeholder="paste your own key here">
+          </label>
+          <p class="cr-hint">Stored only in this browser (localStorage). It is sent to
+            ElevenLabs to generate audio and nowhere else.</p>
+        </details>
       </div>
       <div id="after-content"></div>
     </div>
@@ -379,6 +406,16 @@
 
   document.getElementById('ctl-dysfont').addEventListener('change', function () {
     readerEl.classList.toggle('cr-dyslexic-font', this.checked);
+  });
+
+  // Optional ElevenLabs key — lives only in this browser's localStorage.
+  var elKeyInput = document.getElementById('ctl-elkey');
+  try { elKeyInput.value = localStorage.getItem('clearread-elevenlabs-key') || ''; } catch (e) {}
+  elKeyInput.addEventListener('input', function () {
+    try {
+      if (this.value.trim()) localStorage.setItem('clearread-elevenlabs-key', this.value.trim());
+      else localStorage.removeItem('clearread-elevenlabs-key');
+    } catch (e) {}
   });
 
   // ---- initial state ----

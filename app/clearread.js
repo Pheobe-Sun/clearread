@@ -220,13 +220,23 @@
   /* ---------------- TTS ---------------- */
 
   var currentUtterance = null;
+  var currentAudio = null;        // ElevenLabs playback
+  var speakGeneration = 0;        // invalidates in-flight EL fetches on stop
 
-  function speak(text, onEnd) {
+  // Optional ElevenLabs voice. The key lives ONLY in the reader's own
+  // localStorage (never in this repo); falls back to Web Speech on any error.
+  var EL_KEY_STORAGE = 'clearread-elevenlabs-key';
+  var EL_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // "Rachel", a clear default voice
+
+  function elevenLabsKey() {
+    try { return localStorage.getItem(EL_KEY_STORAGE) || ''; } catch (e) { return ''; }
+  }
+
+  function speakBrowser(text, onEnd) {
     if (!('speechSynthesis' in window)) {
       if (onEnd) onEnd();
       return;
     }
-    window.speechSynthesis.cancel(); // one utterance at a time
     var u = new SpeechSynthesisUtterance(text);
     u.rate = 0.95; // slightly slow for comfortable listening
     u.onend = function () {
@@ -238,8 +248,42 @@
     window.speechSynthesis.speak(u);
   }
 
+  function speakElevenLabs(text, key, onEnd) {
+    var gen = ++speakGeneration;
+    fetch('https://api.elevenlabs.io/v1/text-to-speech/' + EL_VOICE_ID, {
+      method: 'POST',
+      headers: { 'xi-api-key': key, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: text, model_id: 'eleven_turbo_v2_5' })
+    }).then(function (res) {
+      if (!res.ok) throw new Error('ElevenLabs ' + res.status);
+      return res.blob();
+    }).then(function (blob) {
+      if (gen !== speakGeneration) return; // stopped while fetching
+      var audio = new Audio(URL.createObjectURL(blob));
+      currentAudio = audio;
+      audio.onended = function () {
+        if (currentAudio === audio) currentAudio = null;
+        if (onEnd) onEnd();
+      };
+      audio.onerror = audio.onended;
+      audio.play();
+    }).catch(function () {
+      if (gen !== speakGeneration) return;
+      speakBrowser(text, onEnd); // graceful fallback
+    });
+  }
+
+  function speak(text, onEnd) {
+    stopSpeaking(); // one utterance at a time
+    var key = elevenLabsKey();
+    if (key) speakElevenLabs(text, key, onEnd);
+    else speakBrowser(text, onEnd);
+  }
+
   function stopSpeaking() {
+    speakGeneration++;
     currentUtterance = null;
+    if (currentAudio) { currentAudio.pause(); currentAudio = null; }
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   }
 

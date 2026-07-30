@@ -349,10 +349,12 @@
     focusBtn.setAttribute('aria-pressed', 'false');
     var expandAllBtn = document.createElement('button');
     expandAllBtn.type = 'button';
-    expandAllBtn.textContent = 'Expand all';
+    expandAllBtn.textContent = '▾ Open all';
+    expandAllBtn.setAttribute('aria-label', 'Open all chunks');
     var collapseAllBtn = document.createElement('button');
     collapseAllBtn.type = 'button';
-    collapseAllBtn.textContent = 'Collapse all';
+    collapseAllBtn.textContent = '▴ Close all';
+    collapseAllBtn.setAttribute('aria-label', 'Close all chunks');
     toolbar.appendChild(focusBtn);
     toolbar.appendChild(expandAllBtn);
     toolbar.appendChild(collapseAllBtn);

@@ -145,16 +145,74 @@
     cursor: pointer;
     font-weight: 700;
     color: var(--cr-accent);
-    padding: 0.5rem 0.75rem;
+    padding: 0.35rem 0.75rem;
     border-radius: var(--cr-radius);
     background: var(--cr-surface);
     border: 1px solid rgba(127,127,127,0.3);
     list-style-position: inside;
-    max-width: 64rem;
+    width: fit-content;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
     margin: 0 auto;
     box-sizing: border-box;
   }
   .cr-settings[open] > summary { margin-bottom: 0.5rem; }
+  .cr-aa { font-size: 1.3rem; letter-spacing: 0.02em; }
+
+  .cr-slider-row {
+    flex-direction: row !important;
+    align-items: center;
+    gap: 0.6rem !important;
+  }
+  .cr-slider-row input[type="range"] { flex: 1; min-width: 0; }
+  .cr-glyph { font-weight: 700; line-height: 1; opacity: 0.85; }
+  .cr-glyph-spaced { letter-spacing: 0.3em; }
+  .cr-glyph-small { font-size: 0.8em; }
+  .cr-glyph-big { font-size: 1.4em; }
+
+  /* extra specificity: clearread.css also styles .cr-theme-picker button */
+  .cr-theme-picker button.cr-swatch {
+    width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: 50%;
+    border: 2px solid rgba(127,127,127,0.45);
+    font: inherit;
+    font-size: 0.95rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .cr-theme-picker button.cr-swatch[aria-pressed="true"] {
+    border-color: var(--cr-accent);
+    box-shadow: 0 0 0 3px var(--cr-bg), 0 0 0 6px var(--cr-accent);
+  }
+
+  .cr-font-picker { display: flex; align-items: center; gap: 0.6rem; }
+  .cr-fontchip {
+    min-width: 52px;
+    min-height: 44px;
+    border-radius: 10px;
+    border: 2px solid rgba(127,127,127,0.45);
+    background: var(--cr-surface);
+    color: var(--cr-text);
+    font-family: Verdana, sans-serif;
+    font-size: 1.15rem;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .cr-fontchip-dys { font-family: 'OpenDyslexic', 'Comic Sans MS', Verdana, sans-serif; }
+  .cr-fontchip[aria-pressed="true"] { border-color: var(--cr-accent); box-shadow: inset 0 0 0 1px var(--cr-accent); }
+  .cr-info {
+    cursor: help;
+    color: var(--cr-accent);
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
 
   .cr-voice { margin-top: 0.5rem; font-size: 0.85rem; }
   .cr-voice summary { cursor: pointer; color: var(--cr-accent); font-weight: 600; }
@@ -218,30 +276,49 @@
     <div class="view-caption">After — same answer, ClearRead</div>
     <div class="cr-reader" id="reader">
       <details class="cr-settings" id="settings-fold">
-      <summary>⚙️ Reading preferences</summary>
+      <!-- "Aa" is the e-reader-standard symbol for text settings (Kindle, Apple
+           Books, Safari Reader) — a preview, not a word to decode. -->
+      <summary aria-label="Reading preferences" title="Reading preferences"><span
+        class="cr-aa" aria-hidden="true">Aa</span></summary>
       <div class="cr-controls" id="controls">
-        <label>Letter &amp; word spacing
+
+        <label class="cr-slider-row" title="Letter &amp; word spacing">
+          <span class="cr-glyph" aria-hidden="true">aa</span>
           <input type="range" id="ctl-spacing" min="0" max="0.2" step="0.01" value="0.12"
             aria-label="Letter and word spacing">
+          <span class="cr-glyph cr-glyph-spaced" aria-hidden="true">a a</span>
         </label>
-        <label>Font size
+
+        <label class="cr-slider-row" title="Text size">
+          <span class="cr-glyph cr-glyph-small" aria-hidden="true">A</span>
           <input type="range" id="ctl-fontsize" min="16" max="22" step="1" value="18"
-            aria-label="Font size">
+            aria-label="Text size">
+          <span class="cr-glyph cr-glyph-big" aria-hidden="true">A</span>
         </label>
-        <label>Theme
-          <span class="cr-theme-picker" id="ctl-theme">
-            <button type="button" data-theme-choice="cream" aria-pressed="true">Cream</button>
-            <button type="button" data-theme-choice="blue" aria-pressed="false">Blue</button>
-            <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
-          </span>
-        </label>
-        <label class="cr-control-row">
-          <input type="checkbox" id="ctl-dysfont">
-          <span>Dyslexia font <span class="cr-hint">(personal preference — evidence favors
-            spacing, not special fonts)</span></span>
-        </label>
+
+        <!-- Theme swatches show the actual colours; no colour names to read. -->
+        <div class="cr-theme-picker" id="ctl-theme" role="group" aria-label="Colour theme">
+          <button type="button" class="cr-swatch" data-theme-choice="cream" aria-pressed="true"
+            aria-label="Cream theme" title="Cream" style="background:#FAF4E8;color:#2B2B2B">Aa</button>
+          <button type="button" class="cr-swatch" data-theme-choice="blue" aria-pressed="false"
+            aria-label="Blue theme" title="Blue" style="background:#EAF1F7;color:#22303A">Aa</button>
+          <button type="button" class="cr-swatch" data-theme-choice="dark" aria-pressed="false"
+            aria-label="Dark theme" title="Dark" style="background:#1E2226;color:#ECEAE4">Aa</button>
+        </div>
+
+        <!-- Each chip is rendered in the font it selects — the chip IS the preview. -->
+        <div class="cr-font-picker" role="group" aria-label="Font choice">
+          <button type="button" class="cr-fontchip" id="ctl-font-standard" aria-pressed="true"
+            aria-label="Standard font" title="Standard font">Aa</button>
+          <button type="button" class="cr-fontchip cr-fontchip-dys" id="ctl-font-dyslexic" aria-pressed="false"
+            aria-label="Dyslexia font" title="Dyslexia font">Aa</button>
+          <span class="cr-info" tabindex="0"
+            title="Dyslexia font is a personal preference — evidence favors spacing, not special fonts."
+            aria-label="Dyslexia font is a personal preference — evidence favors spacing, not special fonts.">ⓘ</span>
+        </div>
+
         <details class="cr-voice">
-          <summary>Voice settings</summary>
+          <summary title="Read-aloud voice"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg> Voice</summary>
           <label>ElevenLabs API key <span class="cr-hint">(optional — leave empty to use
             your browser's built-in voice)</span>
             <input type="password" id="ctl-elkey" autocomplete="off"
@@ -435,8 +512,17 @@
     });
   });
 
-  document.getElementById('ctl-dysfont').addEventListener('change', function () {
-    readerEl.classList.toggle('cr-dyslexic-font', this.checked);
+  var fontChips = [
+    document.getElementById('ctl-font-standard'),
+    document.getElementById('ctl-font-dyslexic')
+  ];
+  fontChips.forEach(function (chip) {
+    chip.addEventListener('click', function () {
+      fontChips.forEach(function (c) {
+        c.setAttribute('aria-pressed', String(c === chip));
+      });
+      readerEl.classList.toggle('cr-dyslexic-font', chip.id === 'ctl-font-dyslexic');
+    });
   });
 
   // Settings fold themselves shortly after the reader finishes adjusting,
@@ -493,6 +579,7 @@
     var focusToggle = document.querySelector('.cr-focus-btn');
     if (focusToggle) focusToggle.click();
   }
+  if (params.get('prefs') === '1') settingsFold.open = true;
   var wantTheme = params.get('theme');
   if (wantTheme) {
     themeButtons.forEach(function (tb) {

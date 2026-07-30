@@ -99,9 +99,9 @@
 .cr-tldr {
   max-width: var(--cr-max-width);
   margin: 0 auto var(--cr-chunk-gap);
-  background: var(--cr-surface);
-  border: 2px solid var(--cr-accent);
-  border-left-width: 8px;
+  background: var(--cr-highlight); /* matches the landing page's TL;DR card */
+  border: none;
+  border-left: 6px solid var(--cr-accent);
   border-radius: var(--cr-radius);
   padding: 1rem 1.25rem;
 }

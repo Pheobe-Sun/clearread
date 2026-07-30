@@ -126,8 +126,35 @@
     padding: 0.5rem 1rem;
     border-bottom: 1px solid rgba(127,127,127,0.3);
   }
-  #before-view .view-caption { background: #ececec; color: #444; }
+  #before-view .view-caption { background: rgba(127,127,127,0.15); color: var(--cr-text); }
   #after-view .view-caption { background: var(--cr-surface); color: var(--cr-accent); }
+
+  /* Small screens: the flip toggle and picker must never overflow (WCAG 1.4.10) */
+  @media (max-width: 560px) {
+    .flip-wrap { padding: 0 1rem; }
+    .flip { display: flex; width: 100%; }
+    /* min-width:0 lets flex items shrink below their text's intrinsic width */
+    .flip button { flex: 1 1 0; min-width: 0; white-space: normal; padding: 0.7em 0.4em; font-size: 0.92rem; }
+    .picker-row button { flex: 1 1 100%; min-width: 0; white-space: normal; text-align: left; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .view { animation: none !important; }
+  }
+
+  .cr-settings > summary {
+    cursor: pointer;
+    font-weight: 700;
+    color: var(--cr-accent);
+    padding: 0.5rem 0.75rem;
+    border-radius: var(--cr-radius);
+    background: var(--cr-surface);
+    border: 1px solid rgba(127,127,127,0.3);
+    list-style-position: inside;
+    max-width: 64rem;
+    margin: 0 auto;
+    box-sizing: border-box;
+  }
+  .cr-settings[open] > summary { margin-bottom: 0.5rem; }
 
   .cr-voice { margin-top: 0.5rem; font-size: 0.85rem; }
   .cr-voice summary { cursor: pointer; color: var(--cr-accent); font-weight: 600; }
@@ -190,9 +217,11 @@
   <section class="view" id="after-view" hidden>
     <div class="view-caption">After — same answer, ClearRead</div>
     <div class="cr-reader" id="reader">
+      <details class="cr-settings" id="settings-fold">
+      <summary>⚙️ Reading preferences</summary>
       <div class="cr-controls" id="controls">
         <label>Letter &amp; word spacing
-          <input type="range" id="ctl-spacing" min="0.03" max="0.15" step="0.005" value="0.03"
+          <input type="range" id="ctl-spacing" min="0" max="0.2" step="0.01" value="0.12"
             aria-label="Letter and word spacing">
         </label>
         <label>Font size
@@ -222,6 +251,7 @@
             ElevenLabs to generate audio and nowhere else.</p>
         </details>
       </div>
+      </details>
       <div id="after-content"></div>
     </div>
   </section>
@@ -231,6 +261,7 @@
   <a href="../index.html">← About ClearRead</a>
 </footer>
 
+<script src="local-config.js"></script><!-- optional, gitignored; see local-config.example.js -->
 <script src="clearread.js"></script>
 <script src="demos.js"></script>
 <script src="live-answer.js"></script>
@@ -386,8 +417,8 @@
   document.getElementById('ctl-spacing').addEventListener('input', function () {
     var letter = parseFloat(this.value);
     readerEl.style.setProperty('--cr-letter-spacing', letter + 'em');
-    // word spacing scales proportionally: 0.10em default at 0.03em letter
-    readerEl.style.setProperty('--cr-word-spacing', (letter * (0.10 / 0.03)).toFixed(3) + 'em');
+    // word spacing scales proportionally: 0.16em word at the 0.12em letter default
+    readerEl.style.setProperty('--cr-word-spacing', (letter * (0.16 / 0.12)).toFixed(3) + 'em');
   });
 
   document.getElementById('ctl-fontsize').addEventListener('input', function () {
@@ -406,6 +437,26 @@
 
   document.getElementById('ctl-dysfont').addEventListener('change', function () {
     readerEl.classList.toggle('cr-dyslexic-font', this.checked);
+  });
+
+  // Settings fold themselves shortly after the reader finishes adjusting,
+  // so the controls never compete with the answer for attention.
+  var settingsFold = document.getElementById('settings-fold');
+  var foldTimer = null;
+  function scheduleFold() {
+    if (!settingsFold.open) return;
+    clearTimeout(foldTimer);
+    foldTimer = setTimeout(function () {
+      var ae = document.activeElement;
+      var typing = ae && settingsFold.contains(ae) &&
+        ae.tagName === 'INPUT' && (ae.type === 'password' || ae.type === 'text');
+      if (!typing) settingsFold.open = false;
+    }, 3500);
+  }
+  settingsFold.addEventListener('input', scheduleFold);
+  settingsFold.addEventListener('click', function (e) {
+    if (e.target.closest && e.target.closest('summary')) return; // opening/closing by hand
+    scheduleFold();
   });
 
   // Optional ElevenLabs key — lives only in this browser's localStorage.
@@ -435,8 +486,18 @@
     show(params.get('view') === 'after' ? 'after' : 'before');
   }
   if (params.get('expand') === 'all') {
-    var expandAll = document.querySelector('.cr-toolbar button');
+    var expandAll = document.querySelector('.cr-toolbar button:nth-child(2)');
     if (expandAll) expandAll.click();
+  }
+  if (params.get('focus') === '1') {
+    var focusToggle = document.querySelector('.cr-focus-btn');
+    if (focusToggle) focusToggle.click();
+  }
+  var wantTheme = params.get('theme');
+  if (wantTheme) {
+    themeButtons.forEach(function (tb) {
+      if (tb.getAttribute('data-theme-choice') === wantTheme) tb.click();
+    });
   }
 })();
 </script>

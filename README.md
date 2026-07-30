@@ -21,6 +21,7 @@ Existing tools swap the font or read the page aloud. None restructure the answer
 - **TL;DR first** — the main point in one plain sentence, before anything else.
 - **Short chunks** — the answer is split into cards of 50 words or fewer, each with a bold gist line.
 - **Tap to expand** — open any chunk when you want the detail.
+- **🎯 Focus mode** — read one chunk at a time with Next/Back and a progress trail, so long answers never feel daunting.
 - **Read aloud** — a 🔊 button per chunk, in any order you like. Uses your browser's built-in voice; optionally paste your own ElevenLabs API key in Voice settings for natural voices (the key stays in your browser's localStorage).
 - **Evidence-based typography** — 66-character lines, 1.7 line-height, generous letter and word spacing, cream background.
 - **Reader controls** — adjust spacing and type to suit you.
@@ -52,6 +53,18 @@ This works with any CLI that prints markdown — ollama, llm, and others.
 
 ![Piping a live Claude Code answer into ClearRead](assets/cli-bridge.gif)
 
+### Claude Code integration
+
+Deeper hookup for [Claude Code](https://claude.com/claude-code) users — no piping needed:
+
+```
+integrations/claude-code/clearread-last
+```
+
+opens your latest Claude Code answer in ClearRead (it reads the local session
+transcript; nothing leaves your machine). An optional Stop hook opens every
+answer automatically. See [integrations/claude-code/](integrations/claude-code/README.md).
+
 ## Quickstart
 
 1. Clone this repo.
@@ -61,10 +74,10 @@ This works with any CLI that prints markdown — ollama, llm, and others.
 ## What's next / help wanted
 
 - A browser extension for chat UIs.
-- LLM-generated TL;DRs.
+- LLM-generated TL;DRs and chunk gists (today's gists are each chunk's opening sentence — honest, but a model could write true summaries).
 - Word-level text-to-speech sync.
 - Above all: user testing with dyslexic readers.
 
 ---
 
-Built in a 90-minute human+AI sprint by Pheobe and Claude. Open in the MIT spirit — reuse freely; a formal LICENSE file is still to come.
+Built in a 90-minute human+AI sprint by Pheobe and Claude. MIT licensed.

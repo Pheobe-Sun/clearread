@@ -135,9 +135,10 @@
   /* ---------------- chunk building ---------------- */
 
   function makeChunk(gistSource, heading, text, html) {
-    var gist = heading ? truncateGist(heading)
-                       : truncateGist(splitSentences(stripInline(gistSource))[0] || gistSource);
-    return { gist: gist, text: text, html: html };
+    // Gist is always the chunk's own opening sentence; the heading becomes a
+    // section title rendered separately (so sibling chunks never share a gist).
+    var gist = truncateGist(splitSentences(stripInline(gistSource))[0] || gistSource);
+    return { gist: gist, text: text, html: html, section: heading || null };
   }
 
   // Groups sentences into runs of ≤ MAX_CHUNK_WORDS words.
@@ -229,6 +230,11 @@
   var EL_VOICE_ID = '21m00Tcm4TlvDq8ikWAM'; // "Rachel", a clear default voice
 
   function elevenLabsKey() {
+    // local-config.js (gitignored) wins; the Voice-settings field is the fallback.
+    var cfg = window.CLEARREAD_CONFIG;
+    if (cfg && typeof cfg.elevenLabsKey === 'string' && cfg.elevenLabsKey.trim()) {
+      return cfg.elevenLabsKey.trim();
+    }
     try { return localStorage.getItem(EL_KEY_STORAGE) || ''; } catch (e) { return ''; }
   }
 
@@ -305,6 +311,11 @@
     function clearSpeaking() {
       if (speakingCard) {
         speakingCard.classList.remove('cr-speaking');
+        var btn = speakingCard.querySelector('.cr-speak-btn');
+        if (btn) {
+          btn.setAttribute('aria-pressed', 'false');
+          btn.setAttribute('aria-label', 'Read this section aloud');
+        }
         speakingCard = null;
       }
     }
@@ -324,15 +335,25 @@
       containerEl.appendChild(tldrCard);
     }
 
-    // Expand all / Collapse all
+    // Toolbar: chunk count + focus mode + expand/collapse all
     var toolbar = document.createElement('div');
     toolbar.className = 'cr-toolbar';
+    var countLabel = document.createElement('span');
+    countLabel.className = 'cr-count';
+    countLabel.textContent = chunks.length + ' short chunk' + (chunks.length === 1 ? '' : 's');
+    toolbar.appendChild(countLabel);
+    var focusBtn = document.createElement('button');
+    focusBtn.type = 'button';
+    focusBtn.className = 'cr-focus-btn';
+    focusBtn.textContent = '🎯 Read one at a time';
+    focusBtn.setAttribute('aria-pressed', 'false');
     var expandAllBtn = document.createElement('button');
     expandAllBtn.type = 'button';
     expandAllBtn.textContent = 'Expand all';
     var collapseAllBtn = document.createElement('button');
     collapseAllBtn.type = 'button';
     collapseAllBtn.textContent = 'Collapse all';
+    toolbar.appendChild(focusBtn);
     toolbar.appendChild(expandAllBtn);
     toolbar.appendChild(collapseAllBtn);
     containerEl.appendChild(toolbar);
@@ -342,8 +363,19 @@
     containerEl.appendChild(list);
 
     var toggles = [];
+    var cards = [];
+    var shownSection = null;
 
     chunks.forEach(function (chunk, idx) {
+      // Markdown headings become section titles that group related chunks.
+      if (chunk.section && chunk.section !== shownSection) {
+        shownSection = chunk.section;
+        var sectionTitle = document.createElement('h3');
+        sectionTitle.className = 'cr-section-title';
+        sectionTitle.textContent = chunk.section;
+        list.appendChild(sectionTitle);
+      }
+
       var card = document.createElement('article');
       card.className = 'cr-chunk';
 
@@ -368,6 +400,7 @@
         '<path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" ' +
         'stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>';
       speakBtn.setAttribute('aria-label', 'Read this section aloud');
+      speakBtn.setAttribute('aria-pressed', 'false');
 
       var chevron = document.createElement('span');
       chevron.className = 'cr-chevron';
@@ -413,6 +446,8 @@
         clearSpeaking();
         toggle(true); // speaking auto-expands
         card.classList.add('cr-speaking');
+        speakBtn.setAttribute('aria-pressed', 'true');
+        speakBtn.setAttribute('aria-label', 'Stop reading aloud');
         speakingCard = card;
         speak(chunk.text, function () {
           if (speakingCard === card) clearSpeaking();
@@ -422,6 +457,7 @@
       card.appendChild(head);
       card.appendChild(body);
       list.appendChild(card);
+      cards.push(card);
     });
 
     expandAllBtn.addEventListener('click', function () {
@@ -430,6 +466,95 @@
     collapseAllBtn.addEventListener('click', function () {
       toggles.forEach(function (t) { t(false); });
     });
+
+    /* ----- focus mode: one chunk at a time ----- */
+
+    var nav = document.createElement('div');
+    nav.className = 'cr-focus-nav';
+    nav.hidden = true;
+    var prevBtn = document.createElement('button');
+    prevBtn.type = 'button';
+    prevBtn.className = 'cr-nav-btn';
+    prevBtn.textContent = '◀ Back';
+    var middle = document.createElement('div');
+    middle.className = 'cr-focus-progress';
+    var counter = document.createElement('span');
+    counter.className = 'cr-focus-counter';
+    counter.setAttribute('aria-live', 'polite');
+    var dotsRow = document.createElement('span');
+    dotsRow.className = 'cr-focus-dots';
+    dotsRow.setAttribute('aria-hidden', 'true');
+    var dots = chunks.map(function () {
+      var d = document.createElement('span');
+      d.className = 'cr-dot';
+      dotsRow.appendChild(d);
+      return d;
+    });
+    middle.appendChild(counter);
+    middle.appendChild(dotsRow);
+    var nextBtn = document.createElement('button');
+    nextBtn.type = 'button';
+    nextBtn.className = 'cr-nav-btn';
+    nextBtn.textContent = 'Next ▶';
+    nav.appendChild(prevBtn);
+    nav.appendChild(middle);
+    nav.appendChild(nextBtn);
+    containerEl.appendChild(nav);
+
+    var focusIdx = -1; // -1 = normal list mode
+
+    function updateFocus() {
+      cards.forEach(function (c, j) { c.hidden = j !== focusIdx; });
+      toggles[focusIdx](true);
+      counter.textContent = (focusIdx + 1) + ' of ' + chunks.length;
+      dots.forEach(function (d, j) {
+        d.className = 'cr-dot' + (j < focusIdx ? ' cr-dot-done' : j === focusIdx ? ' cr-dot-now' : '');
+      });
+      prevBtn.disabled = focusIdx === 0;
+      nextBtn.textContent = focusIdx === chunks.length - 1 ? 'Done ✓' : 'Next ▶';
+    }
+
+    function enterFocus(i) {
+      focusIdx = Math.max(0, Math.min(i, chunks.length - 1));
+      list.classList.add('cr-focusing');
+      nav.hidden = false;
+      focusBtn.setAttribute('aria-pressed', 'true');
+      focusBtn.textContent = '📋 Show all chunks';
+      updateFocus();
+    }
+
+    function exitFocus() {
+      focusIdx = -1;
+      list.classList.remove('cr-focusing');
+      nav.hidden = true;
+      focusBtn.setAttribute('aria-pressed', 'false');
+      focusBtn.textContent = '🎯 Read one at a time';
+      cards.forEach(function (c) { c.hidden = false; });
+    }
+
+    focusBtn.addEventListener('click', function () {
+      if (focusIdx === -1) enterFocus(0); else exitFocus();
+    });
+    prevBtn.addEventListener('click', function () {
+      if (focusIdx > 0) { focusIdx--; updateFocus(); }
+    });
+    nextBtn.addEventListener('click', function () {
+      if (focusIdx < chunks.length - 1) { focusIdx++; updateFocus(); }
+      else exitFocus(); // "Done ✓" on the last chunk
+    });
+
+    // Arrow keys page through chunks while in focus mode.
+    if (containerEl._crKeyHandler) {
+      document.removeEventListener('keydown', containerEl._crKeyHandler);
+    }
+    containerEl._crKeyHandler = function (e) {
+      if (focusIdx === -1 || !containerEl.isConnected) return;
+      var tag = (e.target.tagName || '').toLowerCase();
+      if (tag === 'input' || tag === 'textarea') return;
+      if (e.key === 'ArrowRight') { e.preventDefault(); nextBtn.click(); }
+      if (e.key === 'ArrowLeft') { e.preventDefault(); prevBtn.click(); }
+    };
+    document.addEventListener('keydown', containerEl._crKeyHandler);
   }
 
   window.ClearRead = { parse: parse, render: render, speak: speak };

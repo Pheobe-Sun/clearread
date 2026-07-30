@@ -1,0 +1,97 @@
+#!/bin/sh
+# clearread-last — open the latest Claude Code answer for this project in ClearRead.
+#
+# Finds the current project's most recently modified Claude Code transcript
+# (~/.claude/projects/<flattened-cwd>/<session>.jsonl), extracts the text of
+# the LAST assistant message, and pipes it into bin/clearread.
+# Read-only over transcript files; python3 is the only requirement.
+#
+# Usage: clearread-last [--project <dir>]        (default project: $PWD)
+# Env:   CLEARREAD_NO_OPEN=1 writes app/live-answer.js without opening a browser.
+
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+CLEARREAD="$SCRIPT_DIR/../../bin/clearread"
+
+PROJECT="$PWD"
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --project)
+      [ $# -ge 2 ] || { echo "clearread-last: --project needs a directory" >&2; exit 1; }
+      PROJECT="$2"; shift 2 ;;
+    -h|--help)
+      echo "Usage: clearread-last [--project <dir>]"
+      echo "Opens the last Claude Code answer for <dir> (default: current dir) in ClearRead."
+      exit 0 ;;
+    *)
+      echo "clearread-last: unknown argument '$1' (try --help)" >&2; exit 1 ;;
+  esac
+done
+
+[ -d "$PROJECT" ] || { echo "clearread-last: '$PROJECT' is not a directory" >&2; exit 1; }
+PROJECT=$(CDPATH= cd -- "$PROJECT" && pwd)
+[ -x "$CLEARREAD" ] || { echo "clearread-last: bin/clearread not found at $CLEARREAD" >&2; exit 1; }
+
+# Claude Code flattens the project path by replacing every non-alphanumeric
+# character with '-' (verified: /Users/…/interface_for_dyslexia ->
+# -Users-…-interface-for-dyslexia).
+FLAT=$(printf '%s' "$PROJECT" | python3 -c 'import re,sys; sys.stdout.write(re.sub(r"[^A-Za-z0-9]", "-", sys.stdin.read()))')
+TRANSCRIPT_DIR="$HOME/.claude/projects/$FLAT"
+
+if [ ! -d "$TRANSCRIPT_DIR" ]; then
+  echo "clearread-last: no Claude Code transcripts for $PROJECT" >&2
+  echo "  expected: $TRANSCRIPT_DIR  (run a Claude Code session in that project first)" >&2
+  exit 1
+fi
+
+# Most recently MODIFIED session file = the live/latest conversation.
+LATEST=$(ls -t "$TRANSCRIPT_DIR"/*.jsonl 2>/dev/null | head -n 1)
+if [ -z "$LATEST" ]; then
+  echo "clearread-last: no session .jsonl files in $TRANSCRIPT_DIR" >&2
+  exit 1
+fi
+
+TMP=$(mktemp)
+trap 'rm -f "$TMP"' EXIT
+
+# Transcript lines are JSON objects; assistant turns have .type=="assistant"
+# and .message.content as an array whose text parts are {"type":"text","text":…}.
+# Take the last non-sidechain assistant message that has text, grouping by
+# message.id in case one API message is split across several lines.
+python3 - "$LATEST" > "$TMP" <<'PY' || { echo "clearread-last: no assistant text found in $(basename "$LATEST")" >&2; exit 1; }
+import json, sys
+by_id, order = {}, []
+with open(sys.argv[1], encoding="utf-8") as f:
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue
+        try:
+            obj = json.loads(line)
+        except ValueError:
+            continue
+        if obj.get("type") != "assistant" or obj.get("isSidechain"):
+            continue
+        msg = obj.get("message") or {}
+        content = msg.get("content")
+        if not isinstance(content, list):
+            continue
+        texts = [p["text"] for p in content
+                 if isinstance(p, dict) and p.get("type") == "text"
+                 and p.get("text", "").strip()]
+        if not texts:
+            continue
+        mid = msg.get("id") or obj.get("uuid")
+        if mid not in by_id:
+            by_id[mid] = []
+            order.append(mid)
+        by_id[mid].extend(texts)
+if not order:
+    sys.exit(3)
+sys.stdout.write("\n\n".join(by_id[order[-1]]))
+PY
+
+PREVIEW=$(tr '\n' ' ' < "$TMP" | cut -c 1-60)
+echo "clearread-last: $(basename "$LATEST") -> \"$PREVIEW...\""
+"$CLEARREAD" < "$TMP"

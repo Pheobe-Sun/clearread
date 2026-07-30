@@ -14,6 +14,9 @@
   --cr-max-width: 66ch;         /* WCAG 1.4.8 ≤80ch; BDA 2023 recommends 60–70 characters per line */
   --cr-chunk-gap: 1.25rem;      /* W3C COGA: white space between chunks reduces visual crowding */
   --cr-radius: 12px;            /* soft card corners; consistent product shape token */
+  /* Chrome (buttons/controls) uses the tight system font so the generously
+     spaced reading text is visually distinct from the UI around it. */
+  --cr-ui-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
 }
 
 /* ---------- Themes (cream is default via :root) ---------- */
@@ -133,16 +136,24 @@
 }
 
 .cr-toolbar button {
-  font: inherit;
-  font-size: 0.8em;
-  color: var(--cr-accent);
-  background: var(--cr-surface);
-  border: 1px solid var(--cr-accent);
+  font-family: var(--cr-ui-font);
+  font-size: 0.78em;
+  font-weight: 500;
+  letter-spacing: normal;
+  word-spacing: normal;
+  color: var(--cr-text);
+  background: transparent;
+  border: 1px solid rgba(127, 127, 127, 0.4);
   border-radius: 999px;
   padding: 0.3em 0.9em;
   cursor: pointer;
 }
-.cr-toolbar button:hover { background: var(--cr-highlight); }
+.cr-toolbar button:hover { border-color: var(--cr-accent); color: var(--cr-accent); }
+.cr-toolbar button[aria-pressed="true"] { border-color: var(--cr-accent); color: var(--cr-accent); }
+
+/* Controls, count, and focus nav share the chrome font */
+.cr-count, .cr-controls, .cr-focus-nav { font-family: var(--cr-ui-font); letter-spacing: normal; word-spacing: normal; }
+.cr-nav-btn { font-family: var(--cr-ui-font); }
 
 /* ---------- Chunk cards ---------- */
 

@@ -41,29 +41,41 @@ One honest caveat: "dyslexia fonts" have weak evidence. Spacing beats fonts, so 
 
 ## Works with any LLM
 
-ClearRead is a display layer, not a model. Paste any answer into the demo.
-
-Or pipe one straight from a terminal:
-
-```
-claude -p "explain quantum computing" | ./bin/clearread
-```
-
-This works with any CLI that prints markdown — ollama, llm, and others.
+ClearRead is a display layer, not a model. Paste any answer into the demo,
+or pipe one in from any CLI that prints markdown — ollama, llm, and others.
 
 ![Piping a live Claude Code answer into ClearRead](assets/cli-bridge.gif)
 
-### Claude Code integration
+### Use it with Claude Code
 
-Deeper hookup for [Claude Code](https://claude.com/claude-code) users — no piping needed:
+Three ways, from quickest to most automatic.
 
+**1. One-shot pipe** — works from any terminal:
+
+```sh
+claude -p "explain how mRNA vaccines work" | ./bin/clearread
 ```
+
+**2. Open your last answer** — inside a Claude Code session in this repo,
+after Claude answers, run:
+
+```sh
 integrations/claude-code/clearread-last
 ```
 
-opens your latest Claude Code answer in ClearRead (it reads the local session
-transcript; nothing leaves your machine). An optional Stop hook opens every
-answer automatically. See [integrations/claude-code/](integrations/claude-code/README.md).
+In-session shortcut: type `! integrations/claude-code/clearread-last` to
+run it without leaving Claude Code.
+
+It reads your latest local session transcript and opens the last answer
+in ClearRead. Nothing leaves your machine.
+
+**3. Auto-open every answer** — merge the `"hooks"` block from
+[`integrations/claude-code/settings-snippet.json`](integrations/claude-code/settings-snippet.json)
+into this repo's `.claude/settings.json`. A Stop hook then opens each
+Claude Code answer in ClearRead automatically. To turn it off, remove
+the hook.
+
+Details in [integrations/claude-code/](integrations/claude-code/README.md).
 
 ## Quickstart
 

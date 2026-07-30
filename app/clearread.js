@@ -55,18 +55,44 @@
     return m ? m.length : 0;
   }
 
+  // Never split after these — "e.g. apples" / "Dr. Smith" are one thought.
+  // (a.m./p.m. are intentionally NOT here: the lowercase-next-char guard keeps
+  // "8 a.m. and" together, while "6 p.m. Dr. Smith" still splits correctly.)
+  var ABBREV_END = /\b(?:e\.g|i\.e|etc|vs|cf|ca|approx|Dr|Mr|Mrs|Ms|Prof|Sr|Jr|St|No|Nos|Fig|Eq|al|U\.S|U\.K)\.$/i;
+
   function splitSentences(s) {
-    // Split after ., !, ? followed by whitespace + capital/quote/digit.
-    var parts = s.match(/[^.!?]+[.!?]+(\s+|$)|[^.!?]+$/g);
-    return parts ? parts.map(function (p) { return p.trim(); }).filter(Boolean) : [s];
+    // Split at ., !, ? runs followed by whitespace and a sentence-looking
+    // start. Decimals ("2.5") never match (no space after the dot); "£1,000."
+    // splits only when a real sentence follows; abbreviations never split.
+    var out = [];
+    var start = 0;
+    // Closer class includes * and _ so "important.**" / "done._" can end a sentence.
+    var re = /[.!?]+["'”’)\]*_]*\s+/g;
+    var m;
+    while ((m = re.exec(s)) !== null) {
+      var end = m.index + m[0].length;
+      var head = s.slice(start, m.index + 1).trimEnd();
+      var segment = s.slice(start, m.index); // just this candidate sentence
+      var next = s.charAt(end);
+      if (ABBREV_END.test(head)) continue;
+      // A bare ordinal marker ("1." / "2.") IS the whole segment — not a sentence.
+      if (/^[\s*_>#-]*\d{1,2}$/.test(segment)) continue;
+      if (next && !/[A-Z0-9"'“‘(\[*_]/.test(next)) continue;
+      out.push(s.slice(start, end).trim());
+      start = end;
+    }
+    if (start < s.length) out.push(s.slice(start).trim());
+    return out.filter(Boolean).length ? out.filter(Boolean) : [s];
   }
 
   function truncateGist(s) {
     s = s.trim();
     if (s.length <= GIST_MAX_CHARS) return s;
     var cut = s.slice(0, GIST_MAX_CHARS);
+    // Always break at the last word boundary so we never truncate mid-number
+    // (e.g. "£1,0" or "2.5") — a partial figure is misleading.
     var lastSpace = cut.lastIndexOf(' ');
-    if (lastSpace > 30) cut = cut.slice(0, lastSpace);
+    if (lastSpace > 0) cut = cut.slice(0, lastSpace);
     return cut.replace(/[,.;:!?]+$/, '') + '…';
   }
 
@@ -84,19 +110,27 @@
 
       if (/^\s*$/.test(line)) { i++; continue; }
 
+      // Horizontal rules (---, ***, ___) are visual separators, not content.
+      if (/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(line)) { i++; continue; }
+
       var fence = line.match(/^```/);
       if (fence) {
         var code = [];
-        i++;
-        while (i < lines.length && !/^```/.test(lines[i])) { code.push(lines[i]); i++; }
-        i++; // skip closing fence
-        blocks.push({ type: 'code', text: code.join('\n') });
-        continue;
+        var j = i + 1;
+        while (j < lines.length && !/^```/.test(lines[j])) { code.push(lines[j]); j++; }
+        if (j < lines.length) {
+          // Closing fence found — emit a real code block.
+          blocks.push({ type: 'code', text: code.join('\n') });
+          i = j + 1;
+          continue;
+        }
+        // Unclosed fence: don't swallow the rest of the doc — treat this one
+        // line as ordinary text and fall through.
       }
 
-      var heading = line.match(/^(#{1,3})\s+(.*)$/);
+      var heading = line.match(/^(#{1,6})\s+(.*)$/);
       if (heading) {
-        blocks.push({ type: 'heading', level: heading[1].length, text: heading[2].trim() });
+        blocks.push({ type: 'heading', level: Math.min(heading[1].length, 3), text: heading[2].trim() });
         i++;
         continue;
       }
@@ -114,6 +148,7 @@
             i++;
           } else break;
         }
+        items = items.filter(function (it) { return it.trim(); }); // drop empty items
         blocks.push({ type: 'list', ordered: ordered, items: items });
         continue;
       }
@@ -122,7 +157,8 @@
       var para = [line.trim()];
       i++;
       while (i < lines.length && !/^\s*$/.test(lines[i]) &&
-             !/^(#{1,3})\s/.test(lines[i]) && !/^```/.test(lines[i]) &&
+             !/^(#{1,6})\s/.test(lines[i]) && !/^```/.test(lines[i]) &&
+             !/^\s*([-*_])(?:\s*\1){2,}\s*$/.test(lines[i]) &&
              !/^\s*([-*+]|\d+[.)])\s+/.test(lines[i])) {
         para.push(lines[i].trim());
         i++;
@@ -193,7 +229,10 @@
           var html = '<' + tag + '>' + items.map(function (it) {
             return '<li>' + renderInline(it) + '</li>';
           }).join('') + '</' + tag + '>';
-          var text = items.map(stripInline).join('. ');
+          // Join items for TTS; don't double up terminal punctuation.
+          var text = items.map(function (it) {
+            return stripInline(it).replace(/[.!?]+$/, '');
+          }).join('. ');
           chunks.push(makeChunk(items[0], currentHeading, text, html));
         });
         return;
@@ -347,17 +386,15 @@
     focusBtn.className = 'cr-focus-btn';
     focusBtn.textContent = '🎯 Read one at a time';
     focusBtn.setAttribute('aria-pressed', 'false');
-    var expandAllBtn = document.createElement('button');
-    expandAllBtn.type = 'button';
-    expandAllBtn.textContent = '▾ Open all';
-    expandAllBtn.setAttribute('aria-label', 'Open all chunks');
-    var collapseAllBtn = document.createElement('button');
-    collapseAllBtn.type = 'button';
-    collapseAllBtn.textContent = '▴ Close all';
-    collapseAllBtn.setAttribute('aria-label', 'Close all chunks');
+    // One toggling button for open/close-all — two buttons for one binary
+    // state is one too many.
+    var expandToggle = document.createElement('button');
+    expandToggle.type = 'button';
+    expandToggle.className = 'cr-expand-btn';
+    expandToggle.textContent = '▾ Open all';
+    expandToggle.setAttribute('aria-pressed', 'false');
     toolbar.appendChild(focusBtn);
-    toolbar.appendChild(expandAllBtn);
-    toolbar.appendChild(collapseAllBtn);
+    toolbar.appendChild(expandToggle);
     containerEl.appendChild(toolbar);
 
     var list = document.createElement('div');
@@ -462,11 +499,12 @@
       cards.push(card);
     });
 
-    expandAllBtn.addEventListener('click', function () {
-      toggles.forEach(function (t) { t(true); });
-    });
-    collapseAllBtn.addEventListener('click', function () {
-      toggles.forEach(function (t) { t(false); });
+    var allOpen = false;
+    expandToggle.addEventListener('click', function () {
+      allOpen = !allOpen;
+      toggles.forEach(function (t) { t(allOpen); });
+      expandToggle.textContent = allOpen ? '▴ Close all' : '▾ Open all';
+      expandToggle.setAttribute('aria-pressed', String(allOpen));
     });
 
     /* ----- focus mode: one chunk at a time ----- */

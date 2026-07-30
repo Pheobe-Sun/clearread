@@ -1,0 +1,23 @@
+#!/bin/sh
+# clearread — pipe any LLM answer into the ClearRead demo.
+# Usage: claude -p "explain X" | ./bin/clearread
+# Set CLEARREAD_NO_OPEN=1 to skip opening the browser (used by tests).
+
+set -eu
+
+# Resolve paths relative to this script so it works from anywhere.
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+APP_DIR="$SCRIPT_DIR/../app"
+OUT="$APP_DIR/live-answer.js"
+PAGE="$APP_DIR/demo.html"
+
+# Read all of stdin and JSON-escape it into a JS string literal.
+python3 -c 'import json,sys; sys.stdout.write("window.LIVE_ANSWER = " + json.dumps(sys.stdin.read()) + ";\n")' > "$OUT"
+
+if [ "${CLEARREAD_NO_OPEN:-}" != "1" ]; then
+  open "$PAGE"          # macOS
+  # xdg-open "$PAGE"    # Linux fallback: swap the line above for this one
+  echo "ClearRead: answer captured -> opening $PAGE"
+else
+  echo "ClearRead: answer captured -> $OUT (browser open skipped)"
+fi

@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="cream">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ClearRead — demo</title>
+<link rel="stylesheet" href="clearread.css">
+<style>
+  /* Page chrome only — reader styling lives in clearread.css tokens. */
+  body {
+    margin: 0;
+    background: var(--cr-bg);
+    color: var(--cr-text);
+    font-family: Verdana, 'Trebuchet MS', Arial, sans-serif;
+  }
+  .page-header {
+    max-width: 60rem;
+    margin: 0 auto;
+    padding: 2rem 1.25rem 0.5rem;
+  }
+  .wordmark { font-size: 1.7rem; font-weight: 800; letter-spacing: 0.02em; margin: 0; }
+  .wordmark .mark-clear { color: var(--cr-accent); }
+  .tagline { margin: 0.25rem 0 0; opacity: 0.85; }
+
+  .picker {
+    max-width: 60rem;
+    margin: 1.25rem auto 0;
+    padding: 0 1.25rem;
+  }
+  .picker-row { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+  .picker-row button {
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.45em 1em;
+    border-radius: 999px;
+    border: 1px solid var(--cr-accent);
+    background: var(--cr-surface);
+    color: var(--cr-text);
+    cursor: pointer;
+  }
+  .picker-row button[aria-pressed="true"] {
+    background: var(--cr-accent);
+    color: var(--cr-bg);
+    font-weight: 700;
+  }
+  .live-badge {
+    background: var(--cr-highlight);
+    border: 1px solid var(--cr-accent);
+    border-radius: 999px;
+    padding: 0.2em 0.7em;
+    font-size: 0.8rem;
+    font-weight: 700;
+  }
+  details.paste-own { margin-top: 0.9rem; font-size: 0.9rem; }
+  details.paste-own summary { cursor: pointer; color: var(--cr-accent); font-weight: 600; }
+  .paste-own textarea {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    min-height: 8rem;
+    margin: 0.6rem 0 0.5rem;
+    font: 0.9rem/1.5 Menlo, Consolas, monospace;
+    padding: 0.6rem;
+    border-radius: 8px;
+    border: 1px solid var(--cr-accent);
+    background: var(--cr-surface);
+    color: var(--cr-text);
+  }
+  .paste-own button {
+    font: inherit;
+    font-size: 0.9rem;
+    padding: 0.45em 1.2em;
+    border-radius: 8px;
+    border: none;
+    background: var(--cr-accent);
+    color: var(--cr-bg);
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  /* THE CENTERPIECE: before/after segmented toggle */
+  .flip-wrap { max-width: 60rem; margin: 1.75rem auto 0; padding: 0 1.25rem; text-align: center; }
+  .flip {
+    display: inline-flex;
+    border: 2px solid var(--cr-accent);
+    border-radius: 999px;
+    overflow: hidden;
+    background: var(--cr-surface);
+    box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+  }
+  .flip button {
+    font: inherit;
+    font-size: 1.05rem;
+    font-weight: 700;
+    padding: 0.7em 1.5em;
+    border: none;
+    background: transparent;
+    color: var(--cr-text);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+  }
+  .flip button[aria-pressed="true"] { background: var(--cr-accent); color: var(--cr-bg); }
+
+  /* stage: the two views swap with a quick fade+lift so the flip feels dramatic */
+  .stage {
+    max-width: 64rem;
+    margin: 1.25rem auto 0;
+    padding: 0 1.25rem 1rem;
+  }
+  .view {
+    border-radius: var(--cr-radius);
+    overflow: hidden;
+    border: 1px solid rgba(127,127,127,0.3);
+    animation: viewIn 0.35s ease;
+  }
+  @keyframes viewIn {
+    from { opacity: 0; transform: translateY(14px) scale(0.99); }
+    to   { opacity: 1; transform: none; }
+  }
+  .view[hidden] { display: none; }
+  .view-caption {
+    font-size: 0.8rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.5rem 1rem;
+    border-bottom: 1px solid rgba(127,127,127,0.3);
+  }
+  #before-view .view-caption { background: #ececec; color: #444; }
+  #after-view .view-caption { background: var(--cr-surface); color: var(--cr-accent); }
+
+  :focus-visible { outline: 3px solid var(--cr-accent); outline-offset: 2px; }
+
+  .page-footer {
+    max-width: 60rem;
+    margin: 2rem auto 0;
+    padding: 0 1.25rem 2.5rem;
+    font-size: 0.85rem;
+  }
+  .page-footer a { color: var(--cr-accent); }
+</style>
+</head>
+<body>
+
+<header class="page-header">
+  <h1 class="wordmark"><span class="mark-clear">Clear</span>Read</h1>
+  <p class="tagline">LLM answers, without the wall of text.</p>
+</header>
+
+<nav class="picker" aria-label="Demo picker">
+  <div class="picker-row" id="demo-buttons"></div>
+  <details class="paste-own">
+    <summary>Paste your own</summary>
+    <textarea id="paste-input" placeholder="Paste any LLM markdown answer here…"
+      aria-label="Paste markdown to render"></textarea>
+    <button type="button" id="paste-render">Render</button>
+  </details>
+</nav>
+
+<div class="flip-wrap">
+  <div class="flip" role="group" aria-label="Before and after toggle">
+    <button type="button" id="btn-before" aria-pressed="true">😵 Standard chat output</button>
+    <button type="button" id="btn-after" aria-pressed="false">😌 ClearRead</button>
+  </div>
+</div>
+
+<main class="stage">
+  <section class="view" id="before-view">
+    <div class="view-caption">Before — the usual wall of text</div>
+    <div class="cr-before"><div class="cr-before-inner" id="before-content"></div></div>
+  </section>
+
+  <section class="view" id="after-view" hidden>
+    <div class="view-caption">After — same answer, ClearRead</div>
+    <div class="cr-reader" id="reader">
+      <div class="cr-controls" id="controls">
+        <label>Letter &amp; word spacing
+          <input type="range" id="ctl-spacing" min="0.03" max="0.15" step="0.005" value="0.03"
+            aria-label="Letter and word spacing">
+        </label>
+        <label>Font size
+          <input type="range" id="ctl-fontsize" min="16" max="22" step="1" value="18"
+            aria-label="Font size">
+        </label>
+        <label>Theme
+          <span class="cr-theme-picker" id="ctl-theme">
+            <button type="button" data-theme-choice="cream" aria-pressed="true">Cream</button>
+            <button type="button" data-theme-choice="blue" aria-pressed="false">Blue</button>
+            <button type="button" data-theme-choice="dark" aria-pressed="false">Dark</button>
+          </span>
+        </label>
+        <label class="cr-control-row">
+          <input type="checkbox" id="ctl-dysfont">
+          <span>Dyslexia font <span class="cr-hint">(personal preference — evidence favors
+            spacing, not special fonts)</span></span>
+        </label>
+      </div>
+      <div id="after-content"></div>
+    </div>
+  </section>
+</main>
+
+<footer class="page-footer">
+  <a href="../index.html">← About ClearRead</a>
+</footer>
+
+<script src="clearread.js"></script>
+<script src="demos.js"></script>
+<script src="live-answer.js"></script>
+<script>
+'use strict';
+(function () {
+  // Defensive fallback: page must work even if demos.js is absent/unfinished.
+  var demos = (Array.isArray(window.CLEARREAD_DEMOS) && window.CLEARREAD_DEMOS.length)
+    ? window.CLEARREAD_DEMOS
+    : [{
+        id: 'fallback',
+        title: 'Why is the sky blue?',
+        tldr: 'Air scatters blue light more than red, so blue reaches your eyes from every direction.',
+        markdown: '# Why the sky is blue\n\nSunlight looks white but contains every color, and when it enters the atmosphere it collides with molecules of nitrogen and oxygen that are far smaller than the wavelength of visible light, which causes a process called **Rayleigh scattering** in which shorter wavelengths are scattered far more strongly than longer ones, roughly in proportion to the inverse fourth power of wavelength. Blue light, having a short wavelength, is scattered in all directions across the whole dome of the sky, so wherever you look away from the sun you see scattered blue light arriving at your eyes, while the longer red and yellow wavelengths pass through comparatively undisturbed.\n\n## Why sunsets are red\n\nAt sunset the light must travel through a much longer slab of atmosphere, so by the time it reaches you *most* of the blue has been scattered away out of the beam entirely, leaving the direct light enriched in orange and red. Dust and aerosols amplify the effect, which is why sunsets after volcanic eruptions are famously vivid.\n\n- Violet is scattered even more than blue, but our eyes are less sensitive to it\n- Ozone absorbs some violet as well\n- The sun itself emits slightly less violet than blue'
+      }];
+
+  var raw = '';       // current markdown source
+  var parsed = null;  // {tldr, chunks}
+  var beforeEl = document.getElementById('before-content');
+  var afterEl = document.getElementById('after-content');
+  var readerEl = document.getElementById('reader');
+
+  // ---- naive "typical chat UI" rendering for the Before view ----
+  // Deliberately does NOT use ClearRead's chunking: paragraphs stay whole so
+  // the Before view is an honest wall of text.
+  function esc(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+  function inl(s) {
+    return esc(s)
+      .replace(/`([^`]+)`/g, '<code>$1</code>')
+      .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, '<a href="$2">$1</a>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/\*([^*]+)\*/g, '<em>$1</em>');
+  }
+  function renderBefore(markdown) {
+    var out = [];
+    var lines = markdown.replace(/\r\n?/g, '\n').split('\n');
+    var i = 0;
+    while (i < lines.length) {
+      var line = lines[i];
+      if (/^\s*$/.test(line)) { i++; continue; }
+      if (/^```/.test(line)) {
+        var code = [];
+        i++;
+        while (i < lines.length && !/^```/.test(lines[i])) { code.push(lines[i++]); }
+        i++;
+        out.push('<pre>' + esc(code.join('\n')) + '</pre>');
+        continue;
+      }
+      var h = line.match(/^(#{1,3})\s+(.*)$/);
+      if (h) { out.push('<h' + h[1].length + '>' + inl(h[2]) + '</h' + h[1].length + '>'); i++; continue; }
+      var li = line.match(/^\s*([-*+]|\d+[.)])\s+/);
+      if (li) {
+        var tag = /\d/.test(li[1]) ? 'ol' : 'ul';
+        var items = [];
+        while (i < lines.length) {
+          var m = lines[i].match(/^\s*(?:[-*+]|\d+[.)])\s+(.*)$/);
+          if (!m) break;
+          items.push('<li>' + inl(m[1]) + '</li>');
+          i++;
+        }
+        out.push('<' + tag + '>' + items.join('') + '</' + tag + '>');
+        continue;
+      }
+      var para = [];
+      while (i < lines.length && !/^\s*$/.test(lines[i]) && !/^(#{1,3})\s|^```|^\s*([-*+]|\d+[.)])\s/.test(lines[i])) {
+        para.push(lines[i].trim());
+        i++;
+      }
+      out.push('<p>' + inl(para.join(' ')) + '</p>');
+    }
+    beforeEl.innerHTML = out.join('');
+  }
+
+  function load(markdown, tldr) {
+    raw = markdown;
+    parsed = ClearRead.parse(markdown);
+    if (tldr) parsed.tldr = tldr;
+    renderBefore(markdown);
+    ClearRead.render(afterEl, parsed);
+  }
+
+  // ---- demo picker ----
+  var buttonsRow = document.getElementById('demo-buttons');
+  var pickButtons = [];
+
+  function selectButton(btn) {
+    pickButtons.forEach(function (b) {
+      b.setAttribute('aria-pressed', b === btn ? 'true' : 'false');
+    });
+  }
+
+  demos.forEach(function (demo) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.textContent = demo.title;
+    b.setAttribute('aria-pressed', 'false');
+    b.addEventListener('click', function () {
+      selectButton(b);
+      load(demo.markdown, demo.tldr || null);
+    });
+    buttonsRow.appendChild(b);
+    pickButtons.push(b);
+  });
+
+  // Live answer from the terminal (bin/clearread overwrites live-answer.js)
+  var hasLive = typeof window.LIVE_ANSWER === 'string' && window.LIVE_ANSWER.length > 0;
+  if (hasLive) {
+    var liveBtn = document.createElement('button');
+    liveBtn.type = 'button';
+    liveBtn.textContent = '⚡ Live from your terminal';
+    liveBtn.className = 'live-badge';
+    liveBtn.setAttribute('aria-pressed', 'false');
+    liveBtn.addEventListener('click', function () {
+      selectButton(liveBtn);
+      load(window.LIVE_ANSWER, null);
+    });
+    buttonsRow.appendChild(liveBtn);
+    pickButtons.push(liveBtn);
+  }
+
+  // Paste your own
+  document.getElementById('paste-render').addEventListener('click', function () {
+    var text = document.getElementById('paste-input').value.trim();
+    if (!text) return;
+    selectButton(null);
+    load(text, null);
+  });
+
+  // ---- before/after flip ----
+  var btnBefore = document.getElementById('btn-before');
+  var btnAfter = document.getElementById('btn-after');
+  var beforeView = document.getElementById('before-view');
+  var afterView = document.getElementById('after-view');
+
+  function show(which) {
+    var showBefore = which === 'before';
+    btnBefore.setAttribute('aria-pressed', String(showBefore));
+    btnAfter.setAttribute('aria-pressed', String(!showBefore));
+    // Toggle hidden + retrigger the entrance animation for a dramatic flip.
+    beforeView.hidden = !showBefore;
+    afterView.hidden = showBefore;
+    var shown = showBefore ? beforeView : afterView;
+    shown.style.animation = 'none';
+    void shown.offsetWidth; // reflow to restart animation
+    shown.style.animation = '';
+  }
+  btnBefore.addEventListener('click', function () { show('before'); });
+  btnAfter.addEventListener('click', function () { show('after'); });
+
+  // ---- reader controls ----
+  document.getElementById('ctl-spacing').addEventListener('input', function () {
+    var letter = parseFloat(this.value);
+    readerEl.style.setProperty('--cr-letter-spacing', letter + 'em');
+    // word spacing scales proportionally: 0.10em default at 0.03em letter
+    readerEl.style.setProperty('--cr-word-spacing', (letter * (0.10 / 0.03)).toFixed(3) + 'em');
+  });
+
+  document.getElementById('ctl-fontsize').addEventListener('input', function () {
+    readerEl.style.setProperty('--cr-font-size', this.value + 'px');
+  });
+
+  var themeButtons = document.querySelectorAll('#ctl-theme button');
+  themeButtons.forEach(function (tb) {
+    tb.addEventListener('click', function () {
+      document.documentElement.setAttribute('data-theme', tb.getAttribute('data-theme-choice'));
+      themeButtons.forEach(function (o) {
+        o.setAttribute('aria-pressed', String(o === tb));
+      });
+    });
+  });
+
+  document.getElementById('ctl-dysfont').addEventListener('change', function () {
+    readerEl.classList.toggle('cr-dyslexic-font', this.checked);
+  });
+
+  // ---- initial state ----
+  // URL params make any state shareable: ?demo=<id>&view=before|after&expand=all
+  var params = new URLSearchParams(location.search);
+  var wantId = params.get('demo');
+  var startIdx = -1;
+  demos.forEach(function (d, i) { if (d.id === wantId) startIdx = i; });
+
+  if (hasLive && startIdx === -1) {
+    // A fresh terminal answer is why the page just opened — show it, flipped
+    // straight to the ClearRead view.
+    pickButtons[pickButtons.length - 1].click();
+    show('after');
+  } else {
+    pickButtons[startIdx === -1 ? 0 : startIdx].click();
+    show(params.get('view') === 'after' ? 'after' : 'before');
+  }
+  if (params.get('expand') === 'all') {
+    var expandAll = document.querySelector('.cr-toolbar button');
+    if (expandAll) expandAll.click();
+  }
+})();
+</script>
+</body>
+</html>

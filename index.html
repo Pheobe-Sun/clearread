@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClearRead — LLM answers, without the wall of text.</title>
+<style>
+  /* Tokens mirror app/clearread.css (:root) so landing + app read as one product. */
+  :root {
+    --cr-bg: #FAF4E8;            /* cream — BDA: avoid pure white */
+    --cr-surface: #FFFDF7;       /* card background */
+    --cr-text: #2B2B2B;          /* near-black on cream, >= 7:1 contrast */
+    --cr-accent: #1A6B8A;        /* buttons/links/focus */
+    --cr-highlight: #FFE8A3;     /* active TTS chunk background */
+    --cr-font-size: 18px;        /* BDA 16-19px */
+    --cr-line-height: 1.7;       /* WCAG >= 1.5 */
+    --cr-letter-spacing: 0.03em; /* default; app slider raises toward 0.12em */
+    --cr-word-spacing: 0.10em;   /* default; app slider raises toward 0.16em */
+    --cr-max-width: 66ch;        /* WCAG <= 80ch, BDA 60-70 */
+    --cr-chunk-gap: 1.25rem;
+    --cr-radius: 12px;
+    --cr-muted: #55636b;         /* citations/secondary text, still >= 7:1 on cream */
+  }
+
+  * { box-sizing: border-box; }
+
+  html { -webkit-text-size-adjust: 100%; }
+
+  body {
+    margin: 0;
+    background: var(--cr-bg);
+    color: var(--cr-text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: var(--cr-font-size);
+    line-height: var(--cr-line-height);
+    letter-spacing: var(--cr-letter-spacing);
+    word-spacing: var(--cr-word-spacing);
+    text-align: left;            /* never justified — BDA */
+  }
+
+  /* Readable measure everywhere; the page follows the rules it preaches. */
+  .wrap {
+    max-width: var(--cr-max-width);
+    margin: 0 auto;
+    padding: 0 1.25rem;
+  }
+  .wrap--wide { max-width: 1040px; }
+
+  a { color: var(--cr-accent); }
+
+  a:focus-visible,
+  button:focus-visible,
+  .chunk:focus-visible {
+    outline: 3px solid var(--cr-accent);
+    outline-offset: 3px;
+    border-radius: 4px;
+  }
+
+  h1, h2, h3 { line-height: 1.25; letter-spacing: 0.01em; }
+  h2 { font-size: 1.6rem; margin: 0 0 0.4rem; }
+  section > .wrap > h2 + p.lead { margin-top: 0; color: var(--cr-muted); }
+
+  section { padding: 3.25rem 0; }
+  section + section { border-top: 1px solid rgba(43,43,43,0.08); }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 4.5rem 0 3.75rem; text-align: left; }
+  .wordmark {
+    font-size: clamp(2.75rem, 7vw, 4.25rem);
+    margin: 0;
+    letter-spacing: -0.01em;
+    color: var(--cr-accent);
+  }
+  .tagline {
+    font-size: clamp(1.35rem, 3.5vw, 1.9rem);
+    font-weight: 600;
+    margin: 0.5rem 0 0.75rem;
+    max-width: 20ch;
+  }
+  .hero p.what { font-size: 1.15rem; margin: 0 0 1.75rem; }
+  .btn {
+    display: inline-block;
+    background: var(--cr-accent);
+    color: #FFFDF7;
+    text-decoration: none;
+    font-size: 1.2rem;
+    font-weight: 600;
+    padding: 0.85rem 1.6rem;
+    border-radius: var(--cr-radius);
+    letter-spacing: 0.01em;
+  }
+  .btn:hover { background: #14566f; }
+
+  /* ---------- Before / After ---------- */
+  .ba-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.75rem;
+    align-items: start;
+  }
+  .ba-col > .ba-label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin: 0 0 0.65rem;
+    color: var(--cr-muted);
+  }
+
+  /* LEFT: standard chatbot output — a genuine wall of text */
+  .chat-wall {
+    background: #ffffff;
+    color: #222;
+    border: 1px solid #e2e2e2;
+    border-radius: 8px;
+    padding: 1.1rem 1.2rem;
+    font-size: 15px;
+    line-height: 1.35;      /* tight, uniform */
+    letter-spacing: normal;
+    word-spacing: normal;
+    text-align: justify;    /* the anti-pattern, shown deliberately */
+  }
+  .chat-wall p { margin: 0 0 0.7rem; }
+  .chat-wall p:last-child { margin-bottom: 0; }
+
+  /* RIGHT: ClearRead rendering */
+  .cr-tldr {
+    background: var(--cr-highlight);
+    border-radius: var(--cr-radius);
+    padding: 0.9rem 1.1rem;
+    margin: 0 0 var(--cr-chunk-gap);
+  }
+  .cr-tldr .k {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #7a5c00;
+    margin-bottom: 0.2rem;
+  }
+  .cr-tldr p { margin: 0; font-weight: 600; }
+  .cr-card {
+    background: var(--cr-surface);
+    border: 1px solid rgba(26,107,138,0.18);
+    border-radius: var(--cr-radius);
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.85rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.6rem;
+    justify-content: space-between;
+  }
+  .cr-card .gist { font-weight: 700; }
+  .cr-card .snip { display: block; font-weight: 400; color: var(--cr-muted); font-size: 0.95rem; margin-top: 0.15rem; }
+  .cr-card .spk {
+    flex: 0 0 auto;
+    font-size: 1.2rem;
+    line-height: 1;
+    border: none;
+    background: transparent;
+    cursor: default;
+  }
+
+  /* ---------- Evidence grid ---------- */
+  .ev-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+    list-style: none;
+    padding: 0;
+  }
+  .ev-grid li {
+    background: var(--cr-surface);
+    border: 1px solid rgba(43,43,43,0.10);
+    border-radius: var(--cr-radius);
+    padding: 1rem 1.1rem;
+  }
+  .ev-grid .name { font-weight: 700; display: block; }
+  .ev-grid .src { display: block; font-size: 0.8rem; color: var(--cr-muted); margin-top: 0.35rem; }
+  .callout {
+    margin-top: 1.5rem;
+    background: var(--cr-highlight);
+    border-left: 5px solid var(--cr-accent);
+    border-radius: var(--cr-radius);
+    padding: 1rem 1.2rem;
+  }
+  .callout p { margin: 0; }
+
+  /* ---------- Any LLM cards ---------- */
+  .use-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 1rem;
+    margin-top: 1.5rem;
+  }
+  .use-card {
+    background: var(--cr-surface);
+    border: 1px solid rgba(43,43,43,0.10);
+    border-radius: var(--cr-radius);
+    padding: 1.1rem 1.2rem;
+  }
+  .use-card .ico { font-size: 1.6rem; display: block; margin-bottom: 0.4rem; }
+  .use-card h3 { margin: 0 0 0.4rem; font-size: 1.1rem; }
+  .use-card p { margin: 0; }
+  code, pre {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    letter-spacing: 0;
+    word-spacing: normal;
+  }
+  pre {
+    background: #10333f;
+    color: #eaf3f6;
+    padding: 0.75rem 0.9rem;
+    border-radius: 8px;
+    overflow-x: auto;
+    font-size: 0.9rem;
+    margin: 0.6rem 0 0;
+  }
+
+  /* ---------- What's next ---------- */
+  ul.next {
+    margin: 1.25rem 0 0;
+    padding-left: 1.2rem;
+  }
+  ul.next li { margin-bottom: 0.6rem; }
+  ul.next li strong { color: var(--cr-accent); }
+
+  /* ---------- Footer ---------- */
+  footer {
+    padding: 2.25rem 0 3rem;
+    border-top: 1px solid rgba(43,43,43,0.08);
+    color: var(--cr-muted);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 720px) {
+    .ba-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="wrap">
+    <h1 class="wordmark">ClearRead</h1>
+    <p class="tagline">LLM answers, without the wall of text.</p>
+    <p class="what">A dyslexia-first reading view that re-renders any LLM's answer as a plain-language summary plus short, spoken-aloud chunk cards.</p>
+    <a class="btn" href="app/demo.html">Try the demo &rarr;</a>
+  </div>
+</header>
+
+<main>
+
+  <!-- 2. THE PROBLEM -->
+  <section id="problem">
+    <div class="wrap wrap--wide">
+      <div class="wrap" style="padding:0;max-width:var(--cr-max-width);">
+        <h2>The problem</h2>
+        <p class="lead">LLMs answer in dense, uniform blocks of text. For roughly 1 in 10 people with dyslexia, a wall of text means visual crowding, losing your line, working-memory overload, and fatigue. So we&rsquo;ll show it, not just say it:</p>
+      </div>
+
+      <div class="ba-grid" style="margin-top:1.5rem;">
+        <!-- BEFORE -->
+        <div class="ba-col">
+          <p class="ba-label">What every chatbot shows</p>
+          <div class="chat-wall" aria-label="Standard dense chatbot answer">
+            <p>Photosynthesis is the biochemical process by which green plants, algae, and certain bacteria convert light energy, usually from the sun, into chemical energy stored in the bonds of glucose and other carbohydrates, and it occurs primarily within specialized organelles called chloroplasts that contain the pigment chlorophyll, which absorbs light most strongly in the blue and red portions of the visible spectrum while reflecting green, and the overall reaction can be summarized as carbon dioxide plus water, in the presence of light energy, yielding glucose and oxygen, a process divided into the light-dependent reactions that occur in the thylakoid membranes and produce ATP and NADPH, and the light-independent Calvin cycle reactions that occur in the stroma and fix carbon dioxide into sugar using that stored chemical energy.</p>
+          </div>
+        </div>
+
+        <!-- AFTER -->
+        <div class="ba-col">
+          <p class="ba-label">What ClearRead shows</p>
+          <div class="cr-render" aria-label="ClearRead chunked answer">
+            <div class="cr-tldr">
+              <span class="k">TL;DR</span>
+              <p>Plants turn sunlight, water, and CO&#8322; into sugar and oxygen.</p>
+            </div>
+            <div class="cr-card">
+              <span><span class="gist">Where it happens</span><span class="snip">Inside chloroplasts, using the green pigment chlorophyll&hellip;</span></span>
+              <span class="spk" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            </div>
+            <div class="cr-card">
+              <span><span class="gist">The light reactions</span><span class="snip">Sunlight hits the thylakoids and makes energy carriers (ATP, NADPH)&hellip;</span></span>
+              <span class="spk" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            </div>
+            <div class="cr-card">
+              <span><span class="gist">The Calvin cycle</span><span class="snip">That energy fixes CO&#8322; into glucose the plant can store&hellip;</span></span>
+              <span class="spk" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path d="M3 9v6h4l5 5V4L7 9H3z" fill="currentColor"/><path d="M16 8.5a4.5 4.5 0 0 1 0 7M18.5 6a8 8 0 0 1 0 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3. THE SOLUTION -->
+  <section id="solution">
+    <div class="wrap wrap--wide">
+      <div style="max-width:var(--cr-max-width);">
+        <h2>The solution &mdash; built on evidence, not vibes</h2>
+        <p class="lead">Every design choice traces to reading-science research or an accessibility standard.</p>
+      </div>
+      <ul class="ev-grid">
+        <li><span class="name">Chunking into &le;50-word blocks</span><span class="src">W3C COGA</span></li>
+        <li><span class="name">66-character line length</span><span class="src">WCAG 1.4.8, British Dyslexia Association</span></li>
+        <li><span class="name">Letter / word spacing 0.12 / 0.16em</span><span class="src">Zorzi 2012 (PNAS), WCAG 1.4.12</span></li>
+        <li><span class="name">Summary-first progressive disclosure</span><span class="src">W3C COGA</span></li>
+        <li><span class="name">Per-chunk read-aloud, in any order</span><span class="src">Bimodal (see + hear) reading evidence</span></li>
+        <li><span class="name">Cream background, never justified</span><span class="src">BDA Style Guide 2023</span></li>
+      </ul>
+      <div class="callout" style="max-width:var(--cr-max-width);">
+        <p><strong>Dyslexia fonts?</strong> Evidence says spacing beats special fonts &mdash; so OpenDyslexic is an optional toggle, never the default.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. WORKS WITH ANY LLM -->
+  <section id="any-llm">
+    <div class="wrap wrap--wide">
+      <div style="max-width:var(--cr-max-width);">
+        <h2>Works with any LLM</h2>
+        <p class="lead">ClearRead is a display layer, not a chatbot. Bring your own answer.</p>
+      </div>
+      <div class="use-grid">
+        <div class="use-card">
+          <span class="ico" aria-hidden="true">&#128203;</span>
+          <h3>Paste any answer</h3>
+          <p>ChatGPT, Claude, Gemini, or local models &mdash; drop the text in and read it clearly.</p>
+        </div>
+        <div class="use-card">
+          <span class="ico" aria-hidden="true">&#9889;</span>
+          <h3>Pipe from your terminal</h3>
+          <p>Send an answer straight into the reading view:</p>
+          <pre><code>claude -p "explain quantum computing" | ./bin/clearread</code></pre>
+        </div>
+        <div class="use-card">
+          <span class="ico" aria-hidden="true">&#129513;</span>
+          <h3>Coming: browser extension</h3>
+          <p>Reformats chat UIs in place, right where you already read them.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. WHAT'S NEXT -->
+  <section id="next">
+    <div class="wrap">
+      <h2>What&rsquo;s next / help wanted</h2>
+      <p class="lead">This is an early sprint prototype. Contributions welcome.</p>
+      <ul class="next">
+        <li><strong>Browser extension</strong> to reformat chat UIs in place.</li>
+        <li><strong>LLM-generated TL;DRs</strong> instead of hand-authored summaries.</li>
+        <li><strong>Word-level TTS sync</strong> that highlights each word as it&rsquo;s spoken.</li>
+        <li><strong>Testing with dyslexic readers</strong> &mdash; the most important next step, and where we most need help.</li>
+      </ul>
+      <p style="margin-top:1.5rem;"><a href="https://github.com/Pheobe-Sun/clearread">View on GitHub</a></p>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Built in a 90-minute sprint by Pheobe + Claude.</p>
+  </div>
+</footer>
+
+</body>
+</html>

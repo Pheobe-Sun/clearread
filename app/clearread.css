@@ -1,0 +1,304 @@
+/* ClearRead — evidence-based design tokens + component styles.
+   Tokens are the contract in AGENTS.md; each carries its evidence source. */
+
+:root {
+  --cr-bg: #FAF4E8;             /* BDA Style Guide 2023: cream/off-white background, avoid pure white glare */
+  --cr-surface: #FFFDF7;        /* BDA Style Guide 2023: low-glare card surface, slightly lighter than bg */
+  --cr-text: #2B2B2B;           /* BDA 2023: dark grey (not pure black) on cream, ≥7:1 contrast (WCAG AAA) */
+  --cr-accent: #1A6B8A;         /* WCAG 1.4.11: ≥3:1 non-text contrast for buttons/links/focus indicators */
+  --cr-highlight: #FFE8A3;      /* W3C COGA: visible location cue — highlight the chunk being read aloud */
+  --cr-font-size: 18px;         /* BDA Style Guide 2023: 16–19px body text for dyslexic readers */
+  --cr-line-height: 1.7;        /* WCAG 1.4.8 / 1.4.12: line spacing at least 1.5× font size */
+  --cr-letter-spacing: 0.03em;  /* Zorzi 2012 PNAS: extra letter spacing improves dyslexic reading; slider → 0.12em+ (WCAG 1.4.12 floor 0.12em) */
+  --cr-word-spacing: 0.10em;    /* WCAG 1.4.12: word spacing adjustable to ≥0.16em without loss; slider raises toward it */
+  --cr-max-width: 66ch;         /* WCAG 1.4.8 ≤80ch; BDA 2023 recommends 60–70 characters per line */
+  --cr-chunk-gap: 1.25rem;      /* W3C COGA: white space between chunks reduces visual crowding */
+  --cr-radius: 12px;            /* soft card corners; consistent product shape token */
+}
+
+/* ---------- Themes (cream is default via :root) ---------- */
+
+[data-theme="cream"] {
+  /* identical to :root defaults; explicit hook for the theme picker */
+  --cr-bg: #FAF4E8;
+  --cr-surface: #FFFDF7;
+  --cr-text: #2B2B2B;
+  --cr-accent: #1A6B8A;
+  --cr-highlight: #FFE8A3;
+}
+
+[data-theme="blue"] {
+  --cr-bg: #EAF1F7;            /* BDA 2023: pastel/soft blue is a common preferred tint */
+  --cr-surface: #F7FAFD;
+  --cr-text: #22303A;          /* ≥7:1 on soft blue */
+  --cr-accent: #175E85;
+  --cr-highlight: #CFE3F4;
+}
+
+[data-theme="dark"] {
+  --cr-bg: #1E2226;
+  --cr-surface: #282D33;
+  --cr-text: #ECEAE4;          /* ~12:1 on #282D33 — meets ≥7:1 (WCAG AAA) */
+  --cr-accent: #7FC4E8;
+  --cr-highlight: #4A4020;     /* warm dim highlight; text stays ≥7:1 */
+}
+
+/* ---------- Base ---------- */
+
+.cr-reader,
+.cr-reader * {
+  box-sizing: border-box;
+}
+
+.cr-reader {
+  background: var(--cr-bg);
+  color: var(--cr-text);
+  font-size: var(--cr-font-size);
+  line-height: var(--cr-line-height);
+  letter-spacing: var(--cr-letter-spacing);
+  word-spacing: var(--cr-word-spacing);
+  font-family: Verdana, 'Trebuchet MS', Arial, sans-serif; /* BDA 2023: sans-serif */
+  text-align: left; /* BDA/WCAG 1.4.8: never justify body text */
+  padding: 1.5rem 1rem 3rem;
+}
+
+.cr-reader.cr-dyslexic-font {
+  font-family: 'OpenDyslexic', 'Comic Sans MS', Verdana, sans-serif;
+}
+
+.cr-column {
+  max-width: var(--cr-max-width);
+  margin: 0 auto;
+}
+
+.cr-reader a { color: var(--cr-accent); }
+
+.cr-reader code {
+  font-family: 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: rgba(127, 127, 127, 0.15);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+
+.cr-reader pre {
+  background: rgba(127, 127, 127, 0.12);
+  padding: 0.9rem 1rem;
+  border-radius: 8px;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+.cr-reader pre code { background: none; padding: 0; }
+
+.cr-reader ul, .cr-reader ol { padding-left: 1.4em; }
+.cr-reader li { margin: 0.35em 0; }
+.cr-reader p { margin: 0.6em 0; }
+
+/* ---------- TL;DR card ---------- */
+
+.cr-tldr {
+  max-width: var(--cr-max-width);
+  margin: 0 auto var(--cr-chunk-gap);
+  background: var(--cr-surface);
+  border: 2px solid var(--cr-accent);
+  border-left-width: 8px;
+  border-radius: var(--cr-radius);
+  padding: 1rem 1.25rem;
+}
+
+.cr-tldr-label {
+  display: inline-block;
+  font-size: 0.75em;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cr-accent);
+  margin-bottom: 0.35rem;
+}
+
+.cr-tldr-text {
+  margin: 0;
+  font-size: 1.1em;
+  font-weight: 600;
+}
+
+/* ---------- Toolbar (Expand all / Collapse all) ---------- */
+
+.cr-toolbar {
+  max-width: var(--cr-max-width);
+  margin: 0 auto 0.75rem;
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+}
+
+.cr-toolbar button {
+  font: inherit;
+  font-size: 0.8em;
+  color: var(--cr-accent);
+  background: var(--cr-surface);
+  border: 1px solid var(--cr-accent);
+  border-radius: 999px;
+  padding: 0.3em 0.9em;
+  cursor: pointer;
+}
+.cr-toolbar button:hover { background: var(--cr-highlight); }
+
+/* ---------- Chunk cards ---------- */
+
+.cr-chunks {
+  max-width: var(--cr-max-width);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--cr-chunk-gap); /* W3C COGA: generous gaps between chunks */
+}
+
+.cr-chunk {
+  background: var(--cr-surface);
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: var(--cr-radius);
+  overflow: hidden;
+  transition: background 0.25s ease;
+}
+
+.cr-chunk.cr-speaking {
+  background: var(--cr-highlight); /* active-TTS location cue (W3C COGA) */
+}
+
+.cr-chunk-head {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.8rem 1rem;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cr-chunk-gist {
+  flex: 1;
+  font-weight: 700;
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.cr-chunk-head:hover { background: rgba(127, 127, 127, 0.08); }
+
+.cr-speak-btn {
+  flex: none;
+  font-size: 1em;
+  line-height: 1;
+  background: none;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  padding: 0.35em 0.45em;
+  cursor: pointer;
+}
+.cr-speak-btn:hover { border-color: var(--cr-accent); }
+
+.cr-chevron {
+  flex: none;
+  transition: transform 0.2s ease;
+  color: var(--cr-accent);
+  font-size: 0.8em;
+}
+.cr-chunk-head[aria-expanded="true"] .cr-chevron { transform: rotate(90deg); }
+
+.cr-chunk-body {
+  padding: 0 1rem 0.9rem;
+  border-top: 1px dashed rgba(127, 127, 127, 0.25);
+}
+.cr-chunk-body[hidden] { display: none; }
+.cr-chunk-body > :first-child { margin-top: 0.7rem; }
+.cr-chunk-body > :last-child { margin-bottom: 0; }
+
+/* ---------- Focus rings (WCAG 2.4.7 visible focus) ---------- */
+
+.cr-reader :focus-visible,
+.cr-chunk-head:focus-visible,
+.cr-speak-btn:focus-visible,
+.cr-toolbar button:focus-visible {
+  outline: 3px solid var(--cr-accent);
+  outline-offset: 2px;
+}
+
+/* ---------- Controls panel ---------- */
+
+.cr-controls {
+  max-width: var(--cr-max-width);
+  margin: 0 auto var(--cr-chunk-gap);
+  background: var(--cr-surface);
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: var(--cr-radius);
+  padding: 0.9rem 1.1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.8rem 1.5rem;
+  font-size: 0.85em;
+}
+
+.cr-controls label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-weight: 600;
+}
+
+.cr-controls input[type="range"] { accent-color: var(--cr-accent); width: 100%; }
+
+.cr-control-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-direction: row !important;
+  font-weight: 600;
+}
+
+.cr-controls .cr-hint {
+  font-weight: 400;
+  font-size: 0.85em;
+  opacity: 0.8;
+}
+
+.cr-theme-picker { display: flex; gap: 0.4rem; }
+
+.cr-theme-picker button {
+  font: inherit;
+  font-size: 0.9em;
+  padding: 0.3em 0.8em;
+  border-radius: 999px;
+  border: 1px solid var(--cr-accent);
+  background: var(--cr-surface);
+  color: var(--cr-text);
+  cursor: pointer;
+}
+.cr-theme-picker button[aria-pressed="true"] {
+  background: var(--cr-accent);
+  color: var(--cr-bg);
+}
+
+/* ---------- Before view: a typical dense chat answer ---------- */
+
+.cr-before {
+  background: #FFFFFF;
+  color: #1a1a1a;
+  font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  font-size: 15px;
+  line-height: 1.4;
+  letter-spacing: normal;
+  word-spacing: normal;
+  text-align: left;
+  padding: 1.5rem 1.25rem 3rem;
+}
+
+.cr-before .cr-before-inner { max-width: none; } /* deliberately full-width long lines */
+.cr-before p { margin: 0.5em 0; }
+.cr-before code {
+  font-family: Menlo, Consolas, monospace;
+  font-size: 0.9em;
+  background: #f0f0f0;
+  padding: 0.1em 0.3em;
+  border-radius: 3px;
+}
+.cr-before pre { background: #f6f6f6; padding: 0.8rem; overflow-x: auto; }
+.cr-before a { color: #2563eb; }

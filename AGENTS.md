@@ -95,3 +95,26 @@ work, open questions, difficulties hit. 3–8 bullet lines, no essays.
 
 ## Status
 - [supervisor] Scaffold + contract written. Agents A/B/C dispatched in parallel.
+- [A] Done: app/clearread.css (tokens + 3 themes + all component styles, each token evidence-commented), app/clearread.js (window.ClearRead.parse/render/speak per contract), app/demo.html (before/after flip centerpiece + picker + controls), app/live-answer.js placeholder, bin/clearread (executable).
+- [A] Use: double-click app/demo.html (works over file://, plain script tags). CLI: `claude -p "..." | ./bin/clearread` writes app/live-answer.js and opens the page; set `CLEARREAD_NO_OPEN=1` to skip the browser (test mode).
+- [A] Verified with node: parse() splits >50-word paragraphs at sentences, keeps lists as one chunk, renders bold/italic/inline-code/links/code-blocks, gists inherit nearest heading. CLI JSON-escaping round-trips correctly. All JS syntax-checked incl. demo.html inline script.
+- [A] Integrated cleanly with Agent C's demos.js (3 demos: vaccines/compound-interest/sourdough). demo.html falls back to one inline demo if CLEARREAD_DEMOS is missing.
+- [A] Note: parse() always returns tldr:null by contract — demo/live callers must pass their own tldr into render(); when null, renderer prefixes chunk 1 with "Main point —".
+- [A] Open Q: TTS (speak) uses Web Speech API which is unavailable/silent in some browsers over file://; degrades gracefully (calls onEnd). Highlight + auto-expand still work regardless.
+- [C] Done: app/demos.js (3 demos: vaccines, compound-interest, sourdough) + README.md.
+- [C] demos.js is a plain script, 'use strict', sets window.CLEARREAD_DEMOS = [{id,title,markdown,tldr}]. Load it with a <script> tag before clearread.js reads it.
+- [C] Each markdown is 350–500 words of genuinely dense paragraphs (Before wall of text). vaccines = no headings, sourdough = no headings/bold, compound-interest has **bold** + a bullet list. Content is factually accurate.
+- [C] Each tldr is one plain sentence ≤20 words — safe to show verbatim when ClearRead.parse returns tldr: null.
+- [C] README keeps exact image paths assets/before-after.gif and assets/cli-bridge.gif for the supervisor to record. No LICENSE file yet (called out as MIT-spirit).
+- [C] Open Q: confirm the CLI bridge invocation is `./bin/clearread` (Agent A owns bin/clearread) — README documents that exact form.
+- [B] index.html done: single-file landing + slide-deck page, all CSS in one <style>, no JS, no CDNs. Works via file:// double-click.
+- [B] Reused every token name/value from the contract (--cr-bg #FAF4E8, --cr-accent #1A6B8A, etc.) in the embedded :root so it matches the app.
+- [B] Page follows its own rules: 66ch measure, line-height 1.7, left-aligned body, cream bg, short chunks. Only the "before" wall-of-text sample is deliberately justified/tight as the anti-pattern.
+- [B] Sections in spec order: Hero, Problem (CSS-only before/after using a hand-written photosynthesis sample), Solution+evidence grid+font callout, Works-with-any-LLM (3 cards incl. CLI code block), What's next, footer ("Pheobe + Claude").
+- [B] Hero button links to app/demo.html (Agent A). GitHub link is placeholder href="#" text "View on GitHub" for supervisor to fill.
+- [B] Open Q: the before/after uses my own photosynthesis content, not a demos.js entry — kept it self-contained on purpose so the landing page never depends on other files. If you'd rather it mirror a canned demo, easy swap.
+- [supervisor] Integration review passed: all files match the contract; node syntax checks pass; CLI bridge round-trips (tested end-to-end with the vaccines demo).
+- [supervisor] Added URL-param state to demo.html (?demo=<id>&view=before|after&expand=all) for shareable/screenshottable states.
+- [supervisor] Replaced 🔊 emoji with inline SVG speaker (emoji fallback glyphs looked broken on systems without color-emoji fonts).
+- [supervisor] Recorded assets/before-after.gif and assets/cli-bridge.gif via headless Chrome + ffmpeg; filled real GitHub URL in index.html.
+- [supervisor] Open: optional ElevenLabs voice mode (user-supplied key via localStorage, never committed) — planned next; Web Speech stays the default.

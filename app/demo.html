@@ -118,16 +118,21 @@
     to   { opacity: 1; transform: none; }
   }
   .view[hidden] { display: none; }
-  .view-caption {
-    font-size: 0.8rem;
-    font-weight: 700;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    padding: 0.5rem 1rem;
-    border-bottom: 1px solid rgba(127,127,127,0.3);
+  /* First-run guidance: one-time pulses that show a newcomer where to click.
+     Outer glow for free-standing buttons; inset ring inside the clipped flip pill. */
+  @keyframes crHint {
+    0%, 100% { box-shadow: 0 0 0 0 rgba(26,107,138,0); }
+    50%      { box-shadow: 0 0 0 7px rgba(26,107,138,0.35); }
   }
-  #before-view .view-caption { background: rgba(127,127,127,0.15); color: var(--cr-text); }
-  #after-view .view-caption { background: var(--cr-surface); color: var(--cr-accent); }
+  .cr-hint { animation: crHint 1.4s ease-in-out 3; }
+  @keyframes crHintInset {
+    0%, 100% { box-shadow: inset 0 0 0 0 rgba(26,107,138,0); background: transparent; }
+    50%      { box-shadow: inset 0 0 0 3px var(--cr-accent); background: rgba(26,107,138,0.12); }
+  }
+  .cr-hint-inset { animation: crHintInset 1.4s ease-in-out 3; }
+  @media (prefers-reduced-motion: reduce) {
+    .cr-hint, .cr-hint-inset { animation: none !important; }
+  }
 
   /* Small screens: the flip toggle and picker must never overflow (WCAG 1.4.10) */
   @media (max-width: 560px) {
@@ -268,12 +273,10 @@
 
 <main class="stage">
   <section class="view" id="before-view">
-    <div class="view-caption">Before — the usual wall of text</div>
     <div class="cr-before"><div class="cr-before-inner" id="before-content"></div></div>
   </section>
 
   <section class="view" id="after-view" hidden>
-    <div class="view-caption">After — same answer, ClearRead</div>
     <div class="cr-reader" id="reader">
       <details class="cr-settings" id="settings-fold">
       <!-- "Aa" is the e-reader-standard symbol for text settings (Kindle, Apple
@@ -475,6 +478,20 @@
   var beforeView = document.getElementById('before-view');
   var afterView = document.getElementById('after-view');
 
+  // First-run guidance: pulse a control once per browser, ever; self-dismisses
+  // on click or when the animation's three beats finish.
+  function pulseOnce(el, flag, cls) {
+    if (!el) return;
+    try { if (localStorage.getItem(flag)) return; } catch (e) { return; }
+    el.classList.add(cls);
+    var done = function () {
+      el.classList.remove(cls);
+      try { localStorage.setItem(flag, '1'); } catch (e) {}
+    };
+    el.addEventListener('click', done, { once: true });
+    el.addEventListener('animationend', done, { once: true });
+  }
+
   function show(which) {
     var showBefore = which === 'before';
     btnBefore.setAttribute('aria-pressed', String(showBefore));
@@ -486,6 +503,9 @@
     shown.style.animation = 'none';
     void shown.offsetWidth; // reflow to restart animation
     shown.style.animation = '';
+    // Second beat of the first-run path: once the flip is discovered, point
+    // at focus mode.
+    if (!showBefore) pulseOnce(afterView.querySelector('.cr-focus-btn'), 'cr-seen-focus', 'cr-hint');
   }
   btnBefore.addEventListener('click', function () { show('before'); });
   btnAfter.addEventListener('click', function () { show('after'); });
@@ -580,6 +600,11 @@
     if (focusToggle) focusToggle.click();
   }
   if (params.get('prefs') === '1') settingsFold.open = true;
+  // First beat of the first-run path: if a newcomer lands on the wall of
+  // text, show them the way out.
+  if (btnBefore.getAttribute('aria-pressed') === 'true') {
+    pulseOnce(btnAfter, 'cr-seen-flip', 'cr-hint-inset');
+  }
   var wantTheme = params.get('theme');
   if (wantTheme) {
     themeButtons.forEach(function (tb) {

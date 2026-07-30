@@ -15,7 +15,7 @@ PAGE="$APP_DIR/demo.html"
 python3 -c 'import json,sys; sys.stdout.write("window.LIVE_ANSWER = " + json.dumps(sys.stdin.read()) + ";\n")' > "$OUT"
 
 if [ "${CLEARREAD_NO_OPEN:-}" != "1" ]; then
-  open "$PAGE"          # macOS
+  open -a Firefox "$PAGE"  # macOS
   # xdg-open "$PAGE"    # Linux fallback: swap the line above for this one
   echo "ClearRead: answer captured -> opening $PAGE"
 else
